@@ -1,0 +1,15 @@
+stage        = "production"
+access_key   = "ABCD1234ABCD"
+secret_key   = "qawsefjklopkcreiofn"
+ssh_key_name = "terraform_test_rsa"
+ssh_key_path = "~/.ssh/terraform_test_rsa.pub"
+ami_id       = "ami-06098fd00463352b6"
+ip_addresses_to_allow_ssh_access = [
+  "11.222.33.44/32",
+  "22.333.44.55/32",
+  "111.777.88.99/32",
+  "222.333.44.555/32",
+]
+rds_mysql_version = "8.0"
+db_root_user_name = "root"
+db_root_password  = "root_user_password"
