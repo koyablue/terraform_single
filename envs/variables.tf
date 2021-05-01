@@ -74,9 +74,7 @@ variable "ebs_volume_size" {
 // IP address
 //=============================================================================
 
-variable "ip_addresses_to_allow_ssh_access" {
-  default = ["0.0.0.0/0"]
-}
+variable "ssh_allow_list" {}
 
 variable "default_cidr_blocks" {
   default = ["0.0.0.0/0"]
