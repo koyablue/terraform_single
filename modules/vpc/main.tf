@@ -2,10 +2,10 @@ variable "stage" {}
 variable "project_name" {}
 variable "region" {}
 
-//=============================================================================
-// VPC
-//=============================================================================
 
+/*
+VPC
+*/
 resource "aws_vpc" "main_vpc" {
   cidr_block                       = "192.168.0.0/16"
   assign_generated_ipv6_cidr_block = false
@@ -16,9 +16,9 @@ resource "aws_vpc" "main_vpc" {
   }
 }
 
-//=============================================================================
-// subnet(public) for EC2
-//=============================================================================
+/*
+subnet(public) for EC2
+*/
 
 # az ap-northeast-1a
 resource "aws_subnet" "public_subnet_a" {
@@ -44,9 +44,9 @@ resource "aws_subnet" "public_subnet_c" {
   }
 }
 
-//=============================================================================
-// Internet Gateway
-//=============================================================================
+/*
+Internet Gateway
+*/
 
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main_vpc.id
@@ -56,9 +56,9 @@ resource "aws_internet_gateway" "igw" {
   }
 }
 
-//=============================================================================
-// route table(public)
-//=============================================================================
+/*
+route table(public)
+*/
 
 # route table
 resource "aws_route_table" "public_rtb" {

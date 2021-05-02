@@ -4,6 +4,11 @@ variable "vpc_id" {}
 variable "ssh_allow_list" {}
 variable "ssh_key_name" {}
 variable "ssh_key_path" {}
+variable "ami_id" {}
+variable "instance_type" {}
+variable "public_subnet_id" {}
+variable "ebs_volume_type" {}
+variable "ebs_volume_size" {}
 
 /*
 security group
@@ -76,3 +81,31 @@ EC2 instance
 https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance
 */
 
+# instance
+resource "aws_instance" "ec2_web" {
+  ami                         = var.ami_id
+  instance_type               = var.instance_type
+  subnet_id                   = var.public_subnet_id
+  associate_public_ip_address = true
+  key_name                    = aws_key_pair.ec2_key_pair.id
+
+  # EBS
+  root_block_device {
+    volume_type = var.ebs_volume_type
+    volume_size = var.ebs_volume_size
+  }
+
+  tags = {
+    "Name" = "${var.project_name}-ec2"
+  }
+
+  //security group
+  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
+}
+
+# Elastic IP
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eip
+resource "aws_eip" "ec2_eip" {
+  instance = aws_instance.ec2_web.id
+  vpc      = true
+}
