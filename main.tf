@@ -12,7 +12,7 @@ provider "aws" {
 vpc module
 */
 module "vpc" {
-  source       = "../modules/vpc"
+  source       = "./modules/vpc"
   stage        = "production"
   project_name = var.project_name
   region       = var.region
@@ -22,7 +22,7 @@ module "vpc" {
 EC2 module
 */
 module "ec2" {
-  source             = "../modules/ec2"
+  source             = "./modules/ec2"
   project_name       = var.project_name
   ec2_sg_description = var.ec2_security_group_description
   vpc_id             = module.vpc.vpc_id
