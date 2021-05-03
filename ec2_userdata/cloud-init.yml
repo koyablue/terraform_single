@@ -1,0 +1,252 @@
+#cloud-config
+timezone: Asia/Tokyo
+locale: ja_JP.utf8
+package_upgrade: true
+packages:
+  - httpd
+  - mod_ssl
+runcmd:
+  # ImageBuilder
+  - yum install nghttp2 -y
+  - yum install libev-devel -y
+  - yum install libnghttp2-devel -y
+  - yum install openldap-devel -y
+  - yum install expat-devel -y
+  - yum install libdb-devel -y
+  - yum update -y
+  # SELinux無効
+  - setenforce 0
+  - sed -i -e 's/^\SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
+  - systemctl restart rsyslog
+  # httpd自動起動
+  - systemctl enable httpd
+  - systemctl start httpd
+  # swap作成
+  - dd if=/dev/zero of=/swapfile bs=1M count=1024
+  - chmod 600 /swapfile
+  - mkswap /swapfile
+  - swapon /swapfile
+  # インスタンス起動時にswap有効化
+  - cp -p /etc/fstab /etc/fstab.org
+  - sed -i -e '$ a /swapfile swap swap defaults 0 0' /etc/fstab
+  # logrotate
+  - sed -i -e "s|\/var\/log\/httpd\/\*log|\/home\/ec2\-user\/logs\/develop\/*log\n\/home\/ec2\-user\/logs\/production\/*log\n\/var\/log\/httpd\/*log|" /etc/logrotate.d/httpd
+  # certbotインストール & cron設定
+  - yum install certbot python2-certbot-apache -y
+  - touch /var/spool/cron/root
+  - sh -c 'echo \#15 4 \* \* 2 certbot renew --post-hook \"systemctl restart httpd\" \1\> /dev/null \2\> /dev/null > /var/spool/cron/root'
+  - systemctl restart crond
+  # php74インストール
+  - amazon-linux-extras install epel -y
+  - rpm -ivh http://rpms.famillecollet.com/enterprise/remi-release-7.rpm
+  - yum install epel-release -y
+  - yum install -y php74 php74-php
+  - yum install -y php74 php74-php-mbstring php74-php-pdo php74-php-json php74-php-pecl-imagick php74-php-gd
+  - yum install -y php74-php-apcu php74-php-xml php74-php-mysqlnd php74-php-pecl-memcached php74-php-pecl-redis
+  - yum install -y php74-php-cli php74-php-fpm php74-php-xml php74-php-zip php74-php-curl
+  - ln -sf /usr/bin/php74 /usr/bin/php
+  - yum update -y
+  - apachectl restart
+  # php.ini編集
+  - sed -i -e "s|expose_php = On|expose_php = Off|" /etc/opt/remi/php74/php.ini
+  - sed -i -e "s|memory_limit = 128M|memory_limit = 512M|" /etc/opt/remi/php74/php.ini
+  - sed -i -e "s|;error_log = php_errors.log|error_log = /var/log/php_errors.log|" /etc/opt/remi/php74/php.ini
+  - sed -i -e "s|post_max_size = 8M|post_max_size = 16M|" /etc/opt/remi/php74/php.ini
+  - sed -i -e "s|upload_max_filesize = 2M|upload_max_filesize = 8M|" /etc/opt/remi/php74/php.ini
+  - sed -i -e "s|;date.timezone =|date.timezone = Asia/Tokyo|" /etc/opt/remi/php74/php.ini
+  - sed -i -e "s|;mbstring.detect_order = auto|mbstring.detect_order = auto|" /etc/opt/remi/php74/php.ini
+  - sed -i -e "s|short_open_tag = Off|short_open_tag = On|" /etc/opt/remi/php74/php.ini
+  # composerインストール
+  - export HOME="/root"
+  - cd /home/ec2-user
+  - curl -sS https://getcomposer.org/installer | php
+  - sudo mv composer.phar /usr/local/bin/composer
+  # 所有者とpermission変更
+  - usermod -a -G apache ec2-user
+  - mkdir /home/ec2-user/logs
+  - mkdir /home/ec2-user/logs/develop
+  - mkdir /home/ec2-user/logs/production
+  - mkdir /home/ec2-user/production
+  - mkdir /home/ec2-user/production/public_html
+  - touch /home/ec2-user/production/public_html/index.php
+  # acme-challenge
+  - mkdir /home/ec2-user/develop/public_html/.well-known
+  - mkdir /home/ec2-user/production/public_html/.well-known
+  - mkdir /home/ec2-user/develop/public_html/.well-known/acme-challenge
+  - mkdir /home/ec2-user/production/public_html/.well-known/acme-challenge
+  - touch /home/ec2-user/develop/public_html/.well-known/acme-challenge/certbot.txt
+  - touch /home/ec2-user/production/public_html/.well-known/acme-challenge/certbot.txt
+  - echo "cert test" >> /home/ec2-user/develop/public_html/.well-known/acme-challenge/certbot.txt
+  - echo "cert test" >> /home/ec2-user/production/public_html/.well-known/acme-challenge/certbot.txt
+  - echo "<? phpinfo();" >> /home/ec2-user/production/public_html/index.php
+  - chmod 2755 /home/ec2-user
+  - chown -R ec2-user:apache /home/ec2-user
+  - chown -R ec2-user:ec2-user /home/ec2-user
+  - chmod 2775 /home/ec2-user/develop/public_html && find /home/ec2-user/develop/public_html -type d -exec sudo chmod 2775 {} \;
+  - find /home/ec2-user/develop/public_html -type f -exec sudo chmod 0664 {} \;
+  - chmod 2775 /home/ec2-user/production/public_html && find /home/ec2-user/production/public_html -type d -exec sudo chmod 2775 {} \;
+  - find /home/ec2-user/production/public_html -type f -exec sudo chmod 0664 {} \;
+  # VirtualHost
+  - chown -R ec2-user:ec2-user /home/ec2-user/logs
+  - chmod 2775 /home/ec2-user/logs && find /home/ec2-user/logs -type d -exec sudo chmod 2775 {} \;
+  - find /home/ec2-user/logs -type f -exec sudo chmod 0664 {} \;
+  - touch /etc/httpd/conf.d/vhosts.conf
+  - touch /etc/httpd/conf.d/vhosts-ssl.conf
+  - mv /etc/httpd/conf.d/autoindex.conf /etc/httpd/conf.d/autoindex.conf.org
+  - mv /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/welcome.conf.org
+  # TimeOut等の設定
+  - sed -i -e '$a\\' /etc/httpd/conf/httpd.conf
+  - sed -i -e '$aTimeOut 30' /etc/httpd/conf/httpd.conf
+  - sed -i -e '$aKeepAlive On' /etc/httpd/conf/httpd.conf
+  - sed -i -e '$aKeepAliveTimeout 5' /etc/httpd/conf/httpd.conf
+  - sed -i -e '$aMaxKeepAliveRequests 200' /etc/httpd/conf/httpd.conf
+  - sed -i -e '$aHostnameLookups Off' /etc/httpd/conf/httpd.conf
+  - sed -i -e '$aServerSignature Off' /etc/httpd/conf/httpd.conf
+  - sed -i -e '$aServerTokens Prod' /etc/httpd/conf/httpd.conf
+  # apacheチューニング
+  - sed -i -e '$a\\' /etc/httpd/conf.modules.d/00-mpm.conf
+  - sed -i -e '$a<IfModule mpm_prefork_module\>' /etc/httpd/conf.modules.d/00-mpm.conf
+  - sed -i -e '$a\\tStartServers 8' /etc/httpd/conf.modules.d/00-mpm.conf
+  - sed -i -e '$a\\tMinSpareServers 5' /etc/httpd/conf.modules.d/00-mpm.conf
+  - sed -i -e '$a\\tMaxSpareServers 10' /etc/httpd/conf.modules.d/00-mpm.conf
+  - sed -i -e '$a\\tServerLimit 34' /etc/httpd/conf.modules.d/00-mpm.conf
+  - sed -i -e '$a\\tMaxClients 34' /etc/httpd/conf.modules.d/00-mpm.conf
+  - sed -i -e '$a\\tMaxRequestsPerChild 200' /etc/httpd/conf.modules.d/00-mpm.conf
+  - sed -i -e '$a<\/IfModule\>' /etc/httpd/conf.modules.d/00-mpm.conf
+  # MySQLインストール
+  - yum remove mariadb-lib -y
+  - yum install https://dev.mysql.com/get/mysql80-community-release-el7-1.noarch.rpm -y
+  - yum install --enablerepo=mysql80-community mysql-community-server -y
+  - systemctl start mysqld.service
+  - systemctl enable mysqld.service
+  - sed -i -e '$a\\' /etc/my.cnf
+  - sed -i -e '$adefault_authentication_plugin=mysql_native_password' /etc/my.cnf
+#  - sed -i -e '$adefault-time-zone = \'Asia/Tokyo\'' /etc/my.cnf
+  - systemctl restart mysqld.service
+  # MySQL logrotate
+  - sed -i -e '21,36s:^\#::' /etc/logrotate.d/mysql
+  # bash-4.2を変更
+  ## bash_profile
+  - touch /home/ec2-user/.bash_profile
+  - echo "# .bash_profile" >> /home/ec2-user/.bash_profile
+  - echo -n -e "\n" >> /home/ec2-user/.bash_profile
+  - echo "# Get the aliases and functions" >> /home/ec2-user/.bash_profile
+  - echo "if [ -f ~/.bashrc ]; then" >> /home/ec2-user/.bash_profile
+  - echo -e "\t. ~/.bashrc" >> /home/ec2-user/.bash_profile
+  - echo "fi" >> /home/ec2-user/.bash_profile
+  - echo -n -e "\n" >> /home/ec2-user/.bash_profile
+  - echo "# User specific environment and startup programs" >> /home/ec2-user/.bash_profile
+  - echo -n -e "\n" >> /home/ec2-user/.bash_profile
+  - echo "PATH=\$PATH:\$HOME/.local/bin:\$HOME/bin" >> /home/ec2-user/.bash_profile
+  - echo -n -e "\n" >> /home/ec2-user/.bash_profile
+  - echo "export PATH" >> /home/ec2-user/.bash_profile
+  ## bashrc
+  - touch /home/ec2-user/.bashrc
+  - echo "# .bash_profile" >> /home/ec2-user/.bashrc
+  - echo -n -e "\n" >> /home/ec2-user/.bashrc
+  - echo "# Source global definitions" >> /home/ec2-user/.bashrc
+  - echo "if [ -f /etc/bashrc ]; then" >> /home/ec2-user/.bashrc
+  - echo -e "\t. /etc/bashrc" >> /home/ec2-user/.bashrc
+  - echo "fi" >> /home/ec2-user/.bashrc
+  - echo -n -e "\n" >> /home/ec2-user/.bashrc
+  - echo "# Uncomment the following line if you don't like systemctl's auto-paging feature:" >> /home/ec2-user/.bashrc
+  - echo "# export SYSTEMD_PAGER=" >> /home/ec2-user/.bashrc
+  - echo -n -e "\n" >> /home/ec2-user/.bashrc
+  - echo "# User specific aliases and functions" >> /home/ec2-user/.bashrc
+  - chown -R ec2-user:ec2-user /home/ec2-user
+  # 再起動
+  - systemctl reload httpd
+  - apachectl restart
+write_files:
+  # VirtualHost
+  - content: |
+      <VirtualHost *:80>
+        ServerName dev.domain.jp
+        RewriteEngine on
+        #RewriteCond %%{SERVER_PORT} !^443$
+        # Let's Encrypt
+        RewriteCond %%{REQUEST_URI} !^/.well-known/
+        #RewriteRule (.*) https://dev.domain.jp [L,R]
+        ServerSignature Off
+        DocumentRoot /home/ec2-user/develop/public_html
+        ErrorLog /home/ec2-user/logs/develop/redirect_error.log
+        LogLevel warn
+        <Directory /home/ec2-user/develop/public_html/>
+          AllowOverride All
+          Options All -Indexes
+          Require all granted
+        </Directory>
+      </VirtualHost>
+      <VirtualHost *:80>
+        ServerName domain.jp
+        RewriteEngine on
+        #RewriteCond %%{SERVER_PORT} !^443$
+        # Let's Encrypt
+        RewriteCond %%{REQUEST_URI} !^/.well-known/
+        #RewriteRule (.*) https://domain.jp [L,R]
+        ServerSignature Off
+        DocumentRoot /home/ec2-user/production/public_html
+        ErrorLog /home/ec2-user/logs/production/redirect_error.log
+        LogLevel warn
+        <Directory /home/ec2-user/production/public_html/>
+          AllowOverride All
+          Options All -Indexes
+          Require all granted
+        </Directory>
+      </VirtualHost>
+    mode: '000644'
+    owner: root
+    group: root
+    path: /etc/httpd/conf.d/vhosts.conf
+  # VirtualHost SSL
+  - content: |
+      #<VirtualHost *:443>
+      #    DocumentRoot /home/ec2-user/develop/public_html
+      #    ServerName dev.domain.jp
+      #    RewriteCond %%{HTTP_HOST} !^dev\.domain\.jp [NC]
+      #    RewriteRule ^ https://dev.entry.dokoyorimo.jp%%{REQUEST_URI} [L,QSA,R=permanent]
+      #
+      #    SSLCertificateFile /etc/letsencrypt/live/dev.domain.jp/fullchain.pem
+      #    SSLCertificateKeyFile /etc/letsencrypt/live/dev.domain.jp/privkey.pem
+      #
+      #    RewriteEngine on
+      #    <Directory /home/ec2-user/develop/public_html/>
+      #        AllowOverride All
+      #        Options All -Indexes
+      #        Require all granted
+      #    </Directory>
+      #</VirtualHost>
+      #<VirtualHost *:443>
+      #    DocumentRoot /home/ec2-user/production/public_html
+      #    ServerName entry.dokoyorimo.jp
+      #
+      #    RewriteCond %%{HTTP_HOST} !^domain\.jp [NC]
+      #    RewriteRule ^ https://domain.jp%%{REQUEST_URI} [L,QSA,R=permanent]
+      #
+      #    SSLCertificateFile /etc/letsencrypt/live/domain.jp/fullchain.pem
+      #    SSLCertificateKeyFile /etc/letsencrypt/live/domain.jp/privkey.pem
+      #
+      #    RewriteEngine on
+      #    <Directory /home/ec2-user/production/public_html/>
+      #        AllowOverride All
+      #        Options All -Indexes
+      #        Require all granted
+      #    </Directory>
+      #</VirtualHost>
+    mode: '000644'
+    owner: root
+    group: root
+    path: /etc/httpd/conf.d/vhosts-ssl.conf
+  # develop index.php
+  - content: |
+      <? phpinfo();
+    mode: '000664'
+    owner: ec2-user
+    group: ec2-user
+    path: /home/ec2-user/develop/public_html/index.php
+power_state:
+  delay: "+15"
+  mode: reboot
+  message: cloud-init Finish And Reboot Please Wait...
+  timeout: 30
+  condition: True
