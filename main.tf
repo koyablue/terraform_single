@@ -35,3 +35,14 @@ module "ec2" {
   ebs_volume_type    = var.ebs_volume_type
   ebs_volume_size    = var.ebs_volume_size
 }
+
+/*
+Route53 module
+*/
+module "route53" {
+  source      = "./modules/route53"
+  host_zone_id     = var.host_zone_id
+  domain_name = var.domain_name
+  ttl         = var.ttl
+  records     = [module.ec2.elastic_ip]
+}
