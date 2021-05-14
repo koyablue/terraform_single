@@ -81,6 +81,11 @@ EC2 instance
 https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance
 */
 
+# userdata
+data "template_file" "userdata" {
+  template = file("${(path.root)}/ec2_userdata/cloud-init.yml")
+}
+
 # instance
 resource "aws_instance" "ec2_web" {
   ami                         = var.ami_id
@@ -88,6 +93,7 @@ resource "aws_instance" "ec2_web" {
   subnet_id                   = var.public_subnet_id
   associate_public_ip_address = true
   key_name                    = aws_key_pair.ec2_key_pair.id
+  user_data                   = data.template_file.userdata.rendered
 
   # EBS
   root_block_device {
