@@ -17,7 +17,7 @@ variable "domain_name" {}
 variable "host_zone_id" {}
 
 variable "ttl" {
-  default = "900"
+  default = "300"
 }
 
 //=============================================================================
