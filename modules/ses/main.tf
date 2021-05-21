@@ -68,7 +68,7 @@ development domain
 */
 //verify domain of development environment
 resource "aws_ses_domain_identity" "verify_dev_domain" {
-    domain = var.dev_domain_name
+  domain = var.dev_domain_name
 }
 
 resource "aws_ses_identity_notification_topic" "dev_bounce_notification" {
