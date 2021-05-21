@@ -51,6 +51,7 @@ module "route53" {
 SNS module
 */
 module "sns" {
+  source       = "./modules/sns"
   project_name = var.project_name
   stage        = var.stage
 }
