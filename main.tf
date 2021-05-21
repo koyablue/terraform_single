@@ -40,9 +40,30 @@ module "ec2" {
 Route53 module
 */
 module "route53" {
-  source      = "./modules/route53"
-  host_zone_id     = var.host_zone_id
-  domain_name = var.domain_name
-  ttl         = var.ttl
-  records     = [module.ec2.elastic_ip]
+  source       = "./modules/route53"
+  host_zone_id = var.host_zone_id
+  domain_name  = var.domain_name
+  ttl          = var.ttl
+  records      = [module.ec2.elastic_ip]
+}
+
+/*
+SNS module
+*/
+module "sns" {
+  project_name = var.project_name
+  stage        = var.stage
+}
+
+/**
+SES module
+*/
+module "ses" {
+  source                   = "./modules/ses"
+  ses_verify_email_address = var.ses_verify_email_address
+  domain_name              = var.domain_name
+  dev_domain_name          = var.dev_domain_name
+  sns_topic_bounce_arn     = module.sns.sns_topic_bounce_arn
+  sns_topic_complaint_arn  = module.sns.sns_topic_complaint_arn
+  sns_topic_delivery_arn   = module.sns.sns_topic_complaint_arn
 }
