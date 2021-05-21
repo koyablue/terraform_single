@@ -14,6 +14,8 @@ variable "stage" {}
 
 variable "domain_name" {}
 
+variable "dev_domain_name" {}
+
 variable "host_zone_id" {}
 
 variable "ttl" {
@@ -130,3 +132,8 @@ variable "rds_security_group_description" {
   default = "security group for RDS"
 }
 
+//=============================================================================
+// SES
+//=============================================================================
+
+variable "ses_verify_email_address" {}
