@@ -16,21 +16,21 @@ resource "aws_ses_email_identity" "verify_email" {
 resource "aws_ses_identity_notification_topic" "email_bounce_notification" {
   topic_arn                = var.sns_topic_bounce_arn
   notification_type        = "Bounce"
-  identity                 = aws_ses_domain_identity.verify_email.email
+  identity                 = aws_ses_email_identity.verify_email.email
   include_original_headers = true
 }
 
 resource "aws_ses_identity_notification_topic" "email_complaint_notification" {
   topic_arn                = var.sns_topic_complaint_arn
   notification_type        = "Complaint"
-  identity                 = aws_ses_domain_identity.verify_email.email
+  identity                 = aws_ses_email_identity.verify_email.email
   include_original_headers = true
 }
 
 resource "aws_ses_identity_notification_topic" "email_delivery_notification" {
   topic_arn                = var.sns_topic_delivery_arn
   notification_type        = "Delivery"
-  identity                 = aws_ses_domain_identity.verify_email.email
+  identity                 = aws_ses_email_identity.verify_email.email
   include_original_headers = true
 }
 
